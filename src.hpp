@@ -5,6 +5,7 @@
 
 #include <cstddef>
 #include <vector>
+#include <list>
 #include <unordered_map>
 #include <algorithm>
 
@@ -98,19 +99,18 @@ public:
         // If block becomes empty, move it to the reusable pool or free it
         if (blk->live_count == 0) {
             // Find the block in active list and move it to pool as reusable
-            for (size_t i = 0; i < blocks_.size(); ++i) {
-                if (&blocks_[i] == blk) {
-                    // Move a copy into heap-allocated Block for pool storage
-                    Block* empty_copy = new Block(blocks_[i]);
+            for (auto itb = blocks_.begin(); itb != blocks_.end(); ++itb) {
+                if (&(*itb) == blk) {
+                    // Copy into heap object for pool storage
+                    Block* empty_copy = new Block(*itb);
                     // Reset metadata for clean reuse
                     empty_copy->used = 0;
                     empty_copy->alloc_sizes.clear();
                     empty_copy->alloc_alive.clear();
                     empty_copy->live_count = 0;
 
-                    // Erase from active blocks by swapping with back
-                    if (i + 1 != blocks_.size()) std::swap(blocks_[i], blocks_.back());
-                    blocks_.pop_back();
+                    // Remove from active list
+                    blocks_.erase(itb);
 
                     // Put into free pool keyed by units
                     free_pool_[empty_copy->units].push_back(empty_copy);
@@ -139,7 +139,8 @@ private:
     };
 
     // Active blocks in the order they were acquired (last is the most recent)
-    std::vector<Block> blocks_;
+    // Use list to keep Block addresses stable for alloc_index_
+    std::list<Block> blocks_;
     // Map from returned pointer to its allocation record
     std::unordered_map<int*, AllocRecord> alloc_index_;
     // Pool of empty reusable blocks keyed by units size
@@ -194,4 +195,3 @@ private:
         return chosen;
     }
 };
-
